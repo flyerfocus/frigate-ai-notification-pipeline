@@ -1,0 +1,889 @@
+{
+  "name": "Frigate AI Security Event Analysis",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -160,
+        0
+      ],
+      "id": "cb828ee3-39ff-47b1-9cf7-0ce683f8028b",
+      "name": "When clicking \u2018Execute workflow\u2019"
+    },
+    {
+      "parameters": {
+        "topics": "frigate/reviews",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mqttTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "ca14ba89-852f-4482-a870-f1613d24251a",
+      "name": "MQTT Trigger",
+      "credentials": {
+        "mqtt": {
+          "name": "MQTT account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "9f69cae5-adc1-4e1e-8b58-e4144e44ae3a",
+              "leftValue": "=  {{ $json.message.after.data.objects[0] }}",
+              "rightValue": "person",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            },
+            {
+              "id": "466ed1ad-c5b1-441c-82f7-63b68a0415bb",
+              "leftValue": "=  {{ $json.message.after.camera }}",
+              "rightValue": "FrontDoor",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        400,
+        0
+      ],
+      "id": "d6a80fef-de3d-42ec-b26a-3565ee0aa73a",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "url": "=http://10.1.1.13:5000/api/events/{{$json.message.after.data.detections[0]}}/snapshot.jpg",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        560,
+        -80
+      ],
+      "id": "a194d4e7-c992-4476-bc0c-2f58b72e30ef",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "jsCode": "return items.map(item => {\n  item.json.message = JSON.parse(item.json.message);\n  return item;\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        208,
+        0
+      ],
+      "id": "f46afd38-3d3e-48c0-894b-2ac095d9fa02",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "resource": "image",
+        "operation": "analyze",
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4.1-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4.1-MINI"
+        },
+        "text": "You are analyzing a security camera image from the front door of a private residence.\n\nYour goal is to produce a concise, factual notification that helps the homeowner quickly understand what is happening.\n\nAnalyze only what is visibly supported by the image. Do not guess or invent details that cannot be determined reliably.\n\nPRIORITY EVENTS:\n\nIf any of the following are present, prioritize them in the summary:\n- Package delivery\n- Unknown visitor waiting at the door\n- Person lingering\n- Multiple people\n- Vehicle arriving, departing, parked, or present in the driveway\n- Animal at the door\n- Anything being held or carried in a person's hands\n- Weapon or potentially dangerous object visible\n- Suspicious or unusual behavior\n\nPEOPLE:\n\n- Report the total person count.\n- Report approximate age group and apparent gender only if reasonably apparent.\n- Describe clothing when reasonably visible.\n- Determine what each person appears to be doing.\n- Determine whether a person appears to be approaching, leaving, waiting, lingering, delivering a package, picking up a package, mowing the lawn, performing landscaping or maintenance, simply passing by, entering or leaving a vehicle, or performing another observable activity.\n- If direction of travel, intent, or activity is uncertain, use cautious language such as \"appears to be\" rather than stating it as fact.\n- If multiple people are present, distinguish them as person_1, person_2, person_3, etc., whenever practical.\n- Do not speculate about a person's identity.\n- Do not identify a person unless identity information has been supplied by a separate recognition system.\n\nHANDS, HELD OBJECTS, AND CARRIED ITEMS:\n\n- Carefully inspect each visible person's hands.\n- Report what each person appears to be holding or carrying.\n- This is security-relevant information and should not be omitted when the hands or carried objects are visible.\n- Pay particular attention to objects that may be security-relevant, including weapons, potentially dangerous objects, tools, packages, bags, backpacks, boxes, electronic devices, phones, containers, mail, documents, or concealed or partially visible objects.\n- Describe objects factually based only on what is visible.\n- Do not identify an ambiguous object as a weapon unless the visual evidence reasonably supports that identification.\n- If an object cannot be identified reliably, describe its visible characteristics rather than guessing. For example: \"small dark rectangular object.\"\n- When appropriate, provide a likely identification separately from the factual visual description and indicate confidence as Confirmed, Likely, or Unknown.\n- If a person's hands are clearly visible and empty, report that no item is visible in their hands.\n- If a person's hands are obscured, outside the frame, or otherwise cannot be evaluated, report that the hands cannot be evaluated.\n- If multiple people are present, distinguish which person is holding or carrying each object whenever possible.\n- Anything potentially dangerous or otherwise security-relevant being held should be prioritized in the summary.\n\nPACKAGES AND DELIVERIES:\n\n- Report whether a package is present.\n- If a package is present:\n  - Estimate its size as small, medium, or large when reasonably possible.\n  - Describe where it is located, placed, or being carried.\n  - Determine whether it appears to be arriving, being delivered, being picked up, being moved, or already present.\n  - Identify the delivery service or vendor (Amazon, UPS, FedEx, USPS, DHL, etc.) whenever there is reasonable visual evidence such as uniforms, vehicles, package markings, logos, badges, or readable text.\n  - State delivery-service confidence as one of:\n    - Confirmed\n    - Likely\n    - Unknown\n- Never infer a delivery service solely because a person is carrying a package.\n\nVEHICLES:\n\n- Report whether any vehicles are visible.\n- Report the number of visible vehicles.\n- When reasonably apparent, report each relevant vehicle's:\n  - Color\n  - Make\n  - Model\n  - Vehicle type\n  - Location or position\n- Describe observable vehicle activity, such as:\n  - Arriving\n  - Departing\n  - Pulling into the driveway\n  - Backing into or out of the driveway\n  - Parking\n  - Parked\n  - Stopping temporarily\n  - Passing by\n- Describe the vehicle's position as specifically as the image reasonably supports, such as \"left side of driveway,\" \"near garage,\" \"curb in front of residence,\" or another visible location.\n- If a vehicle appears newly arrived or has changed position, report that only when supported by the available image/context. Do not infer movement from a single image unless visual evidence supports it.\n- Report a license plate only when characters are actually legible.\n- Preserve capitalization and characters exactly as visible when reporting a license plate.\n- If only part of a plate is legible, report only the readable characters and indicate that the plate is partial.\n- Never guess, infer, or complete unreadable license-plate characters.\n\nANIMALS:\n\n- Report whether any animals are visible.\n- Describe the type of animal when reasonably apparent.\n- Describe where the animal is and what it appears to be doing when relevant.\n- Prioritize an animal at or immediately approaching the door in the summary when noteworthy.\n\nTEXT RECOGNITION:\n\n- Carefully inspect all visible text, logos, labels, uniforms, badges, vehicles, license plates, mail, packages, signs, and carried objects.\n- Read and report any legible text exactly as it appears.\n- If text is only partially visible, report only the readable portion.\n- Never invent, infer, autocomplete, or complete unreadable words or characters.\n- Use visible text together with logos, uniforms, vehicles, badges, and package markings to identify a delivery service or vendor whenever reasonably supported.\n- Keep observed text separate from conclusions derived from that text when appropriate.\n\nUNUSUAL OR SUSPICIOUS ACTIVITY:\n\n- Report anything unusual or potentially suspicious.\n- Do not characterize ordinary behavior as suspicious without visible evidence supporting that characterization.\n- Describe the observable behavior that caused concern rather than making unsupported conclusions about intent.\n- Security-relevant observations may include lingering, attempting to conceal identity, looking into windows, testing doors, unusual handling of packages, potentially dangerous objects, or other clearly observable behavior.\n- Do not infer criminal intent.\n\nSUMMARY RULES:\n\n- Keep the summary under 20 words.\n- Include only the most important event or events.\n- Priority Events should take precedence over routine descriptive details.\n- If there is nothing noteworthy, set summary exactly to:\n  \"No unusual activity detected.\"\n- Do not unnecessarily repeat information from the summary in the detailed fields.\n\nGENERAL RULES:\n\n- Be factual and concise.\n- Do not guess or invent details that are not visible.\n- Distinguish observations from uncertain interpretations.\n- Use cautious language when certainty is limited.\n- Do not speculate about a person's identity.\n- Do not infer intent unless directly supported by observable behavior.\n- Do not mention timestamps, dates, camera names, image quality, potted plants, weather, or that this is a security camera image unless directly relevant to the event.\n- Use null when a value cannot be determined reliably.\n- Counts must be integers.\n- Boolean fields must be true or false.\n- When a field does not apply, use null, false, 0, or an empty array as appropriate.\n- Do not fabricate information merely to populate a field.\n\nOUTPUT REQUIREMENTS:\n\nReturn ONLY one valid JSON object.\n\nDo not use Markdown.\nDo not use code fences.\nDo not include headings, commentary, explanations, or any text outside the JSON object.\n\nUse exactly these field names and data types:\n\n{\n  \"summary\": \"concise summary under 20 words\",\n \"description\": \"detailed factual human-readable description of all relevant visible activity. Include person count, approximate age group and apparent gender when reasonably apparent, clothing, behavior or direction of travel, what each person is holding or carrying, package details and delivery service when applicable, visible vehicles and their activity, visible animals, legible text or logos, and anything unusual or potentially suspicious. Include all relevant observations even when they also appear in the structured fields. Do not repeat the summary verbatim.\",\n\n  \"activity\": \"normalized primary activity\",\n\n  \"person_count\": 0,\n  \"people\": [\n    {\n      \"person\": \"person_1\",\n      \"approximate_age_group\": null,\n      \"apparent_gender\": null,\n      \"clothing\": null,\n      \"behavior\": null,\n      \"direction_of_travel\": null,\n      \"hands_status\": null,\n      \"items_held\": [\n        {\n          \"description\": null,\n          \"likely_identification\": null,\n          \"confidence\": \"Unknown\",\n          \"security_relevant\": false\n        }\n      ]\n    }\n  ],\n\n  \"recognized_person\": null,\n\n  \"package_present\": false,\n  \"package_size\": null,\n  \"package_location\": null,\n  \"package_activity\": null,\n  \"delivery_service\": null,\n  \"delivery_service_confidence\": \"Unknown\",\n\n  \"vehicle_present\": false,\n  \"vehicle_count\": 0,\n  \"vehicles\": [\n    {\n      \"vehicle\": \"vehicle_1\",\n      \"color\": null,\n      \"make\": null,\n      \"model\": null,\n      \"vehicle_type\": null,\n      \"location\": null,\n      \"activity\": null,\n      \"license_plate\": null,\n      \"license_plate_partial\": false\n    }\n  ],\n\n  \"animal_present\": false,\n  \"animal_count\": 0,\n  \"animals\": [\n    {\n      \"animal\": \"animal_1\",\n      \"type\": null,\n      \"description\": null,\n      \"location\": null,\n      \"activity\": null\n    }\n  ],\n\n  \"visible_text\": [\n    {\n      \"text\": null,\n      \"location\": null\n    }\n  ],\n\n  \"potentially_dangerous_object_present\": false,\n  \"unusual_or_suspicious\": false,\n  \"unusual_or_suspicious_description\": null\n}\n\nNORMALIZED ACTIVITY VALUES:\n\nFor \"activity\", use the single best normalized primary activity whenever possible:\n\n- approaching_door\n- leaving\n- waiting_at_door\n- lingering\n- delivering_package\n- picking_up_package\n- moving_package\n- lawn_mowing\n- landscaping\n- maintenance\n- passing_by\n- vehicle_arriving\n- vehicle_departing\n- vehicle_parking\n- vehicle_parked\n- animal_at_door\n- other\n- none\n\nIf more than one event is occurring:\n- Choose the highest-priority security-relevant event for the top-level \"activity\".\n- Preserve other activities in the appropriate people, package, vehicle, or animal fields.\n\nCONFIDENCE VALUES:\n\nWhere a confidence field is requested, use only:\n\n- Confirmed\n- Likely\n- Unknown\n\nUse \"Confirmed\" only when clearly supported by strong visual evidence.\nUse \"Likely\" when there is reasonable but not conclusive visual evidence.\nUse \"Unknown\" when the identification cannot be made reliably.\n\nARRAY RULES:\n\n- If no people are visible, set person_count to 0 and people to [].\n- If people are visible, include one people entry for each reasonably distinguishable person.\n- If no held items are visible and the person's hands are clearly empty, use items_held: [] and hands_status: \"empty\".\n- If hands cannot be evaluated, use items_held: [] and hands_status: \"not_visible\" or \"obscured\" as appropriate.\n- If no vehicles are visible, set vehicle_present to false, vehicle_count to 0, and vehicles to [].\n- If no animals are visible, set animal_present to false, animal_count to 0, and animals to [].\n- If no legible text is visible, set visible_text to [].",
+        "inputType": "base64",
+        "simplify": false,
+        "options": {
+          "maxTokens": 1000
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.3,
+      "position": [
+        720,
+        -80
+      ],
+      "id": "ef488e6e-b8a7-4e5b-afbd-1b5efa453fa6",
+      "name": "Analyze image",
+      "credentials": {
+        "openAiApi": {
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "sendPhoto",
+        "chatId": "={{ $env.TELEGRAM_CHAT_ID }}",
+        "binaryData": true,
+        "additionalFields": {
+          "caption": "={{\n(() => {\n  const a = $('Parse OpenAI Analysis').first().json;\n  const lines = [];\n\n  // SUMMARY\n  lines.push('Summary:');\n  lines.push(`- ${a.summary || 'No unusual activity detected.'}`);\n\n  // DETAILS\n  lines.push('');\n  lines.push('Details:');\n\n  // People\n  lines.push(`- Person count: ${a.person_count ?? 0}`);\n\n  for (const p of (a.people || [])) {\n    const ageGender = [\n      p.approximate_age_group,\n      p.apparent_gender\n    ].filter(Boolean).join(' ');\n\n    if (ageGender) {\n      lines.push(\n        `- Approximate age group and gender: ${\n          ageGender.charAt(0).toUpperCase() + ageGender.slice(1)\n        }`\n      );\n    }\n\n    if (p.clothing) {\n      lines.push(`- Clothing description: ${p.clothing}`);\n    }\n\n    if (p.behavior) {\n      let activity = p.behavior;\n      activity = activity.charAt(0).toUpperCase() + activity.slice(1);\n      lines.push(`- Activity: ${activity}`);\n    } else if (a.activity) {\n      let activity = a.activity.replaceAll('_', ' ');\n      activity = activity.charAt(0).toUpperCase() + activity.slice(1);\n      lines.push(`- Activity: ${activity}`);\n    }\n\n    if (p.direction_of_travel) {\n      lines.push(`- Direction of travel: ${p.direction_of_travel}`);\n    }\n\n    if (p.items_held && p.items_held.length) {\n      for (const item of p.items_held) {\n        let held = item.description || item.likely_identification;\n        if (held) {\n          lines.push(`- Items held: ${held}`);\n        }\n      }\n    } else if (p.hands_status) {\n      lines.push(\n        `- Hands: ${p.hands_status.replaceAll('_', ' ')}; no item clearly identified`\n      );\n    }\n  }\n\n  // Package\n  if (a.package_present) {\n    let pkg = `${a.package_size || 'Unknown size'} package`;\n    if (a.package_location) pkg += `, ${a.package_location}`;\n    lines.push(`- Package: ${pkg}`);\n\n    if (a.package_activity) {\n      lines.push(\n        `- Package activity: ${a.package_activity.replaceAll('_', ' ')}`\n      );\n    }\n\n    if (a.delivery_service) {\n      lines.push(\n        `- Delivery service: ${a.delivery_service}` +\n        (a.delivery_service_confidence\n          ? ` (${a.delivery_service_confidence})`\n          : '')\n      );\n    }\n  }\n\n  // Vehicles\n  if (a.vehicle_present) {\n    if (a.vehicles?.length) {\n      for (const v of a.vehicles) {\n        if (typeof v === 'string') {\n          lines.push(`- Vehicle: ${v}`);\n        } else {\n          const text =\n            v.description ||\n            v.type ||\n            JSON.stringify(v);\n          lines.push(`- Vehicle: ${text}`);\n        }\n      }\n    } else {\n      lines.push(`- Vehicles visible: ${a.vehicle_count || 1}`);\n    }\n  }\n\n  // Animals\n  if (a.animal_present) {\n    if (a.animals?.length) {\n      for (const animal of a.animals) {\n        if (typeof animal === 'string') {\n          lines.push(`- Animal: ${animal}`);\n        } else {\n          const text =\n            animal.description ||\n            animal.type ||\n            JSON.stringify(animal);\n          lines.push(`- Animal: ${text}`);\n        }\n      }\n    } else {\n      lines.push(`- Animals visible: ${a.animal_count || 1}`);\n    }\n  }\n\n  // Compact negative statement like the original notification\n  const absent = [];\n  if (!a.package_present) absent.push('packages');\n  if (!a.vehicle_present) absent.push('vehicles');\n  if (!a.animal_present) absent.push('animals');\n\n  if (absent.length) {\n    let text;\n    if (absent.length === 1) {\n      text = absent[0];\n    } else if (absent.length === 2) {\n      text = `${absent[0]} or ${absent[1]}`;\n    } else {\n      text = `${absent[0]}, ${absent[1]}, or ${absent[2]}`;\n    }\n    lines.push(`- No ${text} visible`);\n  }\n\n  // Visible text / logos\n  if (a.visible_text?.length) {\n    const texts = a.visible_text.map(t =>\n      typeof t === 'string'\n        ? t\n        : (t.text || t.description || JSON.stringify(t))\n    );\n    lines.push(`- Visible text: ${texts.join('; ')}`);\n  }\n\n  // Security flags\n  if (a.potentially_dangerous_object_present) {\n    lines.push('- WARNING: Potentially dangerous object visible');\n  }\n\n  if (a.unusual_or_suspicious) {\n    lines.push(\n      `- Suspicious/unusual behavior: ${\n        a.unusual_or_suspicious_description || 'Observed'\n      }`\n    );\n  } else {\n    lines.push('- No suspicious behavior noted');\n  }\n\n  return lines.join('\\n');\n})()\n}}"
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1440,
+        -288
+      ],
+      "id": "27c7f068-d66d-4ef4-8939-8f3f7bfb7c32",
+      "name": "Send a photo message",
+      "credentials": {
+        "telegramApi": {
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        1008,
+        -288
+      ],
+      "id": "c5ba8dc4-2fff-43cf-ac56-833e8817761c",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = $input.first().json;\n\n// Make sure OpenAI actually completed the response.\nif (response.status !== 'completed') {\n  throw new Error(\n    `OpenAI response incomplete: ${response.incomplete_details?.reason || response.status}`\n  );\n}\n\n// Extract the JSON text returned by the vision model.\nconst text = response.output?.[0]?.content?.[0]?.text;\n\nif (!text) {\n  throw new Error('No analysis text returned by OpenAI');\n}\n\n// Parse the structured JSON.\nlet analysis;\n\ntry {\n  analysis = JSON.parse(text);\n} catch (error) {\n  throw new Error(`Invalid JSON returned by OpenAI: ${error.message}`);\n}\n\n// Return clean structured fields plus AI telemetry.\nreturn [{\n  json: {\n    ...analysis,\n\n    openai_model: response.model || null,\n    input_tokens: response.usage?.input_tokens || 0,\n    output_tokens: response.usage?.output_tokens || 0,\n    total_tokens: response.usage?.total_tokens || 0,\n\n    ai_response_id: response.id || null,\n\n    // Preserve the complete original OpenAI response.\n    ai_response: response\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        880,
+        -80
+      ],
+      "id": "58c9d699-3eb5-4bed-8403-b62a050ae2f0",
+      "name": "Parse OpenAI Analysis"
+    },
+    {
+      "parameters": {
+        "jsCode": "const merged = $input.first().json;\nconst ai = $('Parse OpenAI Analysis').first().json;\nconst frigate = $('Code in JavaScript').first().json;\n\n// The original Frigate MQTT payload\nconst message = frigate.message;\n\n// Serialize values destined for PostgreSQL JSONB columns.\n// This prevents n8n/Postgres from interpreting JavaScript arrays\n// as PostgreSQL text[] arrays.\nconst jsonb = (value, fallback = null) => {\n  return JSON.stringify(value ?? fallback);\n};\n\n// Build one flat record whose property names exactly match PostgreSQL columns.\nreturn [{\n  json: {\n    event_id: message?.after?.id ?? null,\n    event_time: new Date().toISOString(),\n\n    workflow_id: $workflow.id,\n    workflow_name: $workflow.name,\n    execution_id: $execution.id,\n    execution_status: 'success',\n    execution_started_at: new Date().toISOString(),\n    execution_finished_at: null,\n    processing_ms: 0,\n    trigger_type: 'MQTT',\n    error_message: null,\n\n    camera: message?.after?.camera ?? null,\n    object_type: message?.after?.data?.objects?.[0] ?? 'unknown',\n    frigate_event_id: message?.after?.id ?? null,\n    frigate_score: 0,\n\n    // JSONB\n    frigate_metadata: jsonb(message, {}),\n\n    summary: ai.summary ?? null,\n    description: ai.description ?? null,\n    activity: ai.activity ?? null,\n    person_count: ai.person_count ?? 0,\n\n    // JSONB\n    people: jsonb(ai.people, []),\n\n    recognized_person: ai.recognized_person ?? null,\n\n    package_present: ai.package_present ?? false,\n    package_size: ai.package_size ?? null,\n    package_location: ai.package_location ?? null,\n    package_activity: ai.package_activity ?? null,\n    delivery_service: ai.delivery_service ?? null,\n    delivery_service_confidence:\n      ai.delivery_service_confidence ?? null,\n\n    vehicle_present: ai.vehicle_present ?? false,\n    vehicle_count: ai.vehicle_count ?? 0,\n\n    // JSONB\n    vehicles: jsonb(ai.vehicles, []),\n\n    animal_present: ai.animal_present ?? false,\n    animal_count: ai.animal_count ?? 0,\n\n    // JSONB\n    animals: jsonb(ai.animals, []),\n\n    // JSONB\n    visible_text: jsonb(ai.visible_text, []),\n\n    potentially_dangerous_object_present:\n      ai.potentially_dangerous_object_present ?? false,\n\n    unusual_or_suspicious:\n      ai.unusual_or_suspicious ?? false,\n\n    unusual_or_suspicious_description:\n      ai.unusual_or_suspicious_description ?? null,\n\n    notification_sent: true,\n    notification_service: 'Telegram',\n    notification_destination: 'Telegram security alerts',\n\n    openai_model: ai.openai_model ?? null,\n    input_tokens: ai.input_tokens ?? 0,\n    output_tokens: ai.output_tokens ?? 0,\n    total_tokens: ai.total_tokens ?? 0,\n    estimated_cost: 0,\n    ai_response_id: ai.ai_response_id ?? null,\n\n    // JSONB\n    ai_response: jsonb(ai.ai_response, {}),\n\n    // JSONB\n    metadata: jsonb({\n      source: 'frigate',\n      workflow: $workflow.name,\n      workflow_id: $workflow.id,\n      execution_id: $execution.id\n    }, {})\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        -96
+      ],
+      "id": "ed5d58ae-9da5-477b-8cd6-333f8c1b0251",
+      "name": "Prepare Database Record"
+    },
+    {
+      "parameters": {
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "camera_event_log",
+          "mode": "list",
+          "cachedResultName": "camera_event_log"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {
+            "package_present": false,
+            "notification_sent": false,
+            "vehicle_present": false,
+            "animal_present": false,
+            "potentially_dangerous_object_present": false,
+            "unusual_or_suspicious": false,
+            "id": 0,
+            "processing_ms": 0,
+            "frigate_score": 0,
+            "person_count": 0,
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "estimated_cost": 0,
+            "vehicle_count": 0,
+            "animal_count": 0,
+            "total_tokens": 0
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "event_id",
+              "displayName": "event_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "event_time",
+              "displayName": "event_time",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "workflow_id",
+              "displayName": "workflow_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "workflow_name",
+              "displayName": "workflow_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "execution_id",
+              "displayName": "execution_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "execution_status",
+              "displayName": "execution_status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "execution_started_at",
+              "displayName": "execution_started_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "execution_finished_at",
+              "displayName": "execution_finished_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "processing_ms",
+              "displayName": "processing_ms",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "trigger_type",
+              "displayName": "trigger_type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "error_message",
+              "displayName": "error_message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "camera",
+              "displayName": "camera",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "object_type",
+              "displayName": "object_type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "frigate_event_id",
+              "displayName": "frigate_event_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "frigate_score",
+              "displayName": "frigate_score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "frigate_metadata",
+              "displayName": "frigate_metadata",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "object",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "summary",
+              "displayName": "summary",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "description",
+              "displayName": "description",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "activity",
+              "displayName": "activity",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "person_count",
+              "displayName": "person_count",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "recognized_person",
+              "displayName": "recognized_person",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "package_present",
+              "displayName": "package_present",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "package_size",
+              "displayName": "package_size",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "package_location",
+              "displayName": "package_location",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "delivery_service",
+              "displayName": "delivery_service",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "visible_text",
+              "displayName": "visible_text",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "object",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "notification_sent",
+              "displayName": "notification_sent",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "notification_service",
+              "displayName": "notification_service",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "notification_destination",
+              "displayName": "notification_destination",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "openai_model",
+              "displayName": "openai_model",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "input_tokens",
+              "displayName": "input_tokens",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "output_tokens",
+              "displayName": "output_tokens",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "estimated_cost",
+              "displayName": "estimated_cost",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "ai_response",
+              "displayName": "ai_response",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "object",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "metadata",
+              "displayName": "metadata",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "object",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "created_at",
+              "displayName": "created_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "people",
+              "displayName": "people",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "object",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "delivery_service_confidence",
+              "displayName": "delivery_service_confidence",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "package_activity",
+              "displayName": "package_activity",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "vehicle_present",
+              "displayName": "vehicle_present",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "vehicle_count",
+              "displayName": "vehicle_count",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "vehicles",
+              "displayName": "vehicles",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "object",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "animal_present",
+              "displayName": "animal_present",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "animal_count",
+              "displayName": "animal_count",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "animals",
+              "displayName": "animals",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "object",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "potentially_dangerous_object_present",
+              "displayName": "potentially_dangerous_object_present",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "unusual_or_suspicious",
+              "displayName": "unusual_or_suspicious",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "unusual_or_suspicious_description",
+              "displayName": "unusual_or_suspicious_description",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "total_tokens",
+              "displayName": "total_tokens",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "ai_response_id",
+              "displayName": "ai_response_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1440,
+        -96
+      ],
+      "id": "1c91121c-aaa8-4fa5-bf62-fd1645e6d443",
+      "name": "Insert rows in a table",
+      "credentials": {
+        "postgres": {
+          "name": "PostgreSQL account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When clicking \u2018Execute workflow\u2019": {
+      "main": [
+        []
+      ]
+    },
+    "MQTT Trigger": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Analyze image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze image": {
+      "main": [
+        [
+          {
+            "node": "Parse OpenAI Analysis",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Send a photo message",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Prepare Database Record",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse OpenAI Analysis": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Prepare Database Record": {
+      "main": [
+        [
+          {
+            "node": "Insert rows in a table",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "nodeGroups": [],
+  "tags": []
+}
