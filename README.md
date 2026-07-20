@@ -46,3 +46,5 @@ No API keys, passwords, or bot tokens are included. Configure MQTT, OpenAI, Tele
 
 ## Status
 Working production proof-of-concept. Planned refinement: select a frame roughly 100 ms after initial detection.
+Additional planned refinement:  In an effort to keep all data in-house and not traversing Internet, the OpenAI vision analysis piece will be handled in-house by Ollama.
+Additional planned refinement:  Notifcations will be handled in-hoouse by Home Assistant instead of Telegram.
