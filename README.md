@@ -1,6 +1,6 @@
 # AI-Powered Computer Vision Event Pipeline
 
-An event-driven security workflow integrating **Frigate NVR, MQTT, n8n, OpenAI vision, Telegram, and PostgreSQL**.
+An open-source, event-driven pipeline that transforms computer-vision detections into AI-analyzed, image-enriched real-time notifications and auditable event records using **Frigate, MQTT, n8n, OpenAI multimodal AI, Telegram, PostgreSQL, and Docker.**
 
 ## What it does
 Frigate publishes computer-vision events over MQTT. n8n filters relevant detections, retrieves event imagery, submits it to OpenAI for structured multimodal analysis, recombines the image with the resulting intelligence, delivers a rich real-time phone notification through Telegram, and persists an auditable event record to PostgreSQL.
@@ -48,7 +48,10 @@ No API keys, passwords, or bot tokens are included. Configure MQTT, OpenAI, Tele
 5. Test, then activate the workflow.
 
 ## Status
-Working production proof-of-concept. 
-Planned refinement: select a video frame (snapshot) from Frigate roughly 100 ms after initial detection to allow subject to become more centered in frame rather than at edge of frame where initial detection often occurs.
-Additional planned refinement:  In an effort to keep all data in-house and not traversing Internet, the OpenAI vision analysis piece will be handled in-house by Ollama.
-Additional planned refinement:  Notifications will be handled in-house by Home Assistant instead of Telegram.
+Working production proof-of-concept.
+
+Planned enhancements:
+
+Improve image timing by selecting a frame shortly after initial detection, allowing subjects to move farther into the camera frame before analysis.
+Evaluate migration of multimodal analysis from OpenAI to locally hosted Ollama models to keep image processing entirely on-premises.
+Integrate Home Assistant as an additional local notification and automation channel.
