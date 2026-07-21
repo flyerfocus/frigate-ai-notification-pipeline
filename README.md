@@ -1,9 +1,11 @@
-# Frigate AI Security Event Analysis with n8n
+# AI-Powered Computer Vision Event Pipeline
 
 An event-driven security workflow integrating **Frigate NVR, MQTT, n8n, OpenAI vision, Telegram, and PostgreSQL**.
 
 ## What it does
-Frigate publishes a review event over MQTT. n8n filters relevant FrontDoor person events, retrieves the event snapshot, sends it to a vision model for strictly structured JSON analysis, recombines the image and analysis, sends a rich Telegram alert, and persists an auditable event record to PostgreSQL.
+Frigate publishes computer-vision events over MQTT. n8n filters relevant detections, retrieves event imagery, submits it to OpenAI for structured multimodal analysis, recombines the image with the resulting intelligence, delivers a rich real-time phone notification through Telegram, and persists an auditable event record to PostgreSQL.
+
+The current implementation monitors person detections from a front-door camera, while the workflow architecture can be adapted to additional cameras, object classes, notification channels, and downstream automation.
 
 ## Demonstrates
 - Event-driven MQTT automation and n8n orchestration
@@ -14,6 +16,7 @@ Frigate publishes a review event over MQTT. n8n filters relevant FrontDoor perso
 - Dynamic Telegram photo notifications
 - PostgreSQL + JSONB event/audit logging
 - AI response IDs and token telemetry
+- End-to-end API and systems integration across self-hosted and cloud services
 
 ## Architecture
 ```text
@@ -46,6 +49,6 @@ No API keys, passwords, or bot tokens are included. Configure MQTT, OpenAI, Tele
 
 ## Status
 Working production proof-of-concept. 
-Planned refinement: select a video frame (snapshot) from frigate roughly 100 ms after initial detection to allow subject to become more centered in frame rather than at edge of frame where initial detection often occurs.
+Planned refinement: select a video frame (snapshot) from Frigate roughly 100 ms after initial detection to allow subject to become more centered in frame rather than at edge of frame where initial detection often occurs.
 Additional planned refinement:  In an effort to keep all data in-house and not traversing Internet, the OpenAI vision analysis piece will be handled in-house by Ollama.
-Additional planned refinement:  Notifcations will be handled in-hoouse by Home Assistant instead of Telegram.
+Additional planned refinement:  Notifications will be handled in-house by Home Assistant instead of Telegram.
